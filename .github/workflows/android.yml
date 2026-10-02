@@ -21,11 +21,12 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.22.2'
           channel: 'stable'
 
-      - name: Generate Android Structure
+      - name: Recreate clean android platform
         run: |
+          rm -rf android
           flutter create . --platforms=android --project-name agri_sathi --org com.agrisathi
 
       - name: Install dependencies
