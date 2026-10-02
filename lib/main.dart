@@ -4,8 +4,14 @@ import 'admin_screen.dart';
 
 void main() => runApp(const AgriSathiApp());
 
-class AgriSathiApp extends StatelessWidget {
+class AgriSathiApp extends StatefulWidget {
   const AgriSathiApp({super.key});
+  @override
+  State<AgriSathiApp> createState() => _AgriSathiAppState();
+}
+
+class _AgriSathiAppState extends State<AgriSathiApp> {
+  void refreshApp() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
@@ -17,27 +23,33 @@ class AgriSathiApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF6FAF7),
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0B6B3A), foregroundColor: Colors.white),
       ),
-      home: const MainNav(),
+      home: MainNav(onLangChange: refreshApp),
     );
   }
 }
 
 class MainNav extends StatefulWidget {
-  const MainNav({super.key});
-
+  final VoidCallback onLangChange;
+  const MainNav({super.key, required this.onLangChange});
   @override
   State<MainNav> createState() => _MainNavState();
 }
 
 class _MainNavState extends State<MainNav> {
   int _idx = 0;
-
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(onCart: () => setState(() => _idx = 1)),
+      HomeScreen(
+        onCart: () => setState(() => _idx = 1),
+        onLangToggle: () {
+          AppStrings.lang = AppStrings.lang == 'hi' ? 'en' : 'hi';
+          widget.onLangChange();
+        },
+      ),
       CartScreen(onOrder: () => setState(() => _idx = 2)),
       const OrdersScreen(),
+      const HelpDeskScreen(),
       const AdminScreen(),
     ];
 
@@ -47,13 +59,14 @@ class _MainNavState extends State<MainNav> {
         selectedIndex: _idx,
         onDestinationSelected: (i) => setState(() => _idx = i),
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.home), label: 'होम'),
+          NavigationDestination(icon: const Icon(Icons.home), label: AppStrings.lang == 'hi' ? 'होम' : 'Home'),
           NavigationDestination(
             icon: Badge(label: Text('${cart.length}'), isLabelVisible: cart.isNotEmpty, child: const Icon(Icons.shopping_cart)),
-            label: 'कार्ट',
+            label: AppStrings.t('cart'),
           ),
-          const NavigationDestination(icon: Icon(Icons.local_shipping), label: 'ट्रैकिंग'),
-          const NavigationDestination(icon: Icon(Icons.admin_panel_settings), label: 'एडमिन'),
+          NavigationDestination(icon: const Icon(Icons.local_shipping), label: AppStrings.t('orders')),
+          NavigationDestination(icon: const Icon(Icons.support_agent), label: AppStrings.lang == 'hi' ? 'सहायता' : 'Help'),
+          NavigationDestination(icon: const Icon(Icons.admin_panel_settings), label: AppStrings.t('admin')),
         ],
       ),
     );
@@ -62,24 +75,36 @@ class _MainNavState extends State<MainNav> {
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onCart;
-  const HomeScreen({super.key, required this.onCart});
-
+  final VoidCallback onLangToggle;
+  const HomeScreen({super.key, required this.onCart, required this.onLangToggle});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String cat = 'सभी';
+  String selectedCat = 'सभी';
   String q = '';
 
   @override
   Widget build(BuildContext context) {
-    final list = products.where((p) => (cat == 'सभी' || p['cat'] == cat) && p['name'].toString().toLowerCase().contains(q.toLowerCase())).toList();
+    final list = products.where((p) {
+      final matchesCat = selectedCat == 'सभी' || selectedCat == 'All' || p['cat'] == selectedCat;
+      final name = AppStrings.lang == 'hi' ? p['name_hi'] : p['name_en'];
+      final brand = p['brand'] ?? '';
+      return matchesCat && (name.toString().toLowerCase().contains(q.toLowerCase()) || brand.toString().toLowerCase().contains(q.toLowerCase()));
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agri Sathi 🌱'),
-        actions: [IconButton(icon: const Icon(Icons.shopping_cart), onPressed: widget.onCart)],
+        title: Text(AppStrings.t('appName')),
+        actions: [
+          TextButton.icon(
+            onPressed: widget.onLangToggle,
+            icon: const Icon(Icons.language, color: Colors.white, size: 18),
+            label: Text(AppStrings.lang == 'hi' ? 'English' : 'हिन्दी', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+          IconButton(icon: const Icon(Icons.shopping_cart), onPressed: widget.onCart),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(12),
@@ -87,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
           TextField(
             onChanged: (v) => setState(() => q = v),
             decoration: InputDecoration(
-              hintText: 'बीज, खाद, मल्चिंग खोजें...',
+              hintText: AppStrings.t('searchHint'),
               prefixIcon: const Icon(Icons.search, color: Color(0xFF0B6B3A)),
               filled: true,
               fillColor: Colors.white,
@@ -98,9 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['सभी', 'बीज', 'खाद', 'दवा', 'मल्चिंग'].map((c) => Padding(
+              children: ['सभी', 'बीज', 'खाद', 'दवा', 'मल्चिंग', 'कृषि उपकरण'].map((c) => Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(label: Text(c), selected: cat == c, onSelected: (_) => setState(() => cat = c)),
+                child: ChoiceChip(label: Text(c), selected: selectedCat == c, onSelected: (_) => setState(() => selectedCat = c)),
               )).toList(),
             ),
           ),
@@ -108,11 +133,14 @@ class _HomeScreenState extends State<HomeScreen> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.68, crossAxisSpacing: 8, mainAxisSpacing: 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.66, crossAxisSpacing: 8, mainAxisSpacing: 8),
             itemCount: list.length,
             itemBuilder: (ctx, i) {
               final item = list[i];
-              final hasStock = (item['sizes'] as List).any((s) => s['inStock'] == true);
+              final sizes = item['sizes'] as List<dynamic>;
+              final hasStock = sizes.any((s) => s['inStock'] == true);
+              final name = AppStrings.lang == 'hi' ? item['name_hi'] : item['name_en'];
+
               return Card(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 clipBehavior: Clip.antiAlias,
@@ -126,11 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Image.network(item['img'], fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => const Icon(Icons.grass, size: 40, color: Colors.green)),
                             if (!hasStock)
-                              Container(
-                                color: Colors.black54,
-                                alignment: Alignment.center,
-                                child: const Text('आउट ऑफ स्टॉक', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
+                              Container(color: Colors.black54, alignment: Alignment.center, child: Text(AppStrings.t('outStock'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
                           ],
                         ),
                       ),
@@ -139,8 +163,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item['name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('₹${item['sizes'][0]['p']} से', style: const TextStyle(color: Color(0xFF0B6B3A), fontWeight: FontWeight.bold)),
+                            Text(item['brand'] ?? '', style: const TextStyle(fontSize: 10, color: Color(0xFF0B6B3A), fontWeight: FontWeight.bold)),
+                            Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(height: 4),
+                            Text('₹${sizes[0]['p']} से', style: const TextStyle(color: Color(0xFF0B6B3A), fontWeight: FontWeight.bold, fontSize: 14)),
                           ],
                         ),
                       )
@@ -171,19 +197,21 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget build(BuildContext context) {
     final sizes = widget.item['sizes'] as List<dynamic>;
     final pack = sizes[sIdx];
-    final bool isAvailable = pack['inStock'] ?? true;
+    final bool isAvail = pack['inStock'] ?? true;
+    final name = AppStrings.lang == 'hi' ? widget.item['name_hi'] : widget.item['name_en'];
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.item['name'])),
+      appBar: AppBar(title: Text(name)),
       body: ListView(
         children: [
-          Image.network(widget.item['img'], height: 200, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.grass, size: 80, color: Colors.green)),
+          Image.network(widget.item['img'], height: 210, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.agriculture, size: 70, color: Colors.green)),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.item['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(widget.item['brand'] ?? '', style: const TextStyle(color: Color(0xFF0B6B3A), fontWeight: FontWeight.bold)),
+                Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -193,27 +221,21 @@ class _DetailScreenState extends State<DetailScreen> {
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isAvailable ? const Color(0xFFEAF8EF) : const Color(0xFFFFEBEE),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(isAvailable ? 'स्टॉक में उपलब्ध' : 'आउट ऑफ स्टॉक', style: TextStyle(color: isAvailable ? Colors.green : Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
+                      decoration: BoxDecoration(color: isAvail ? const Color(0xFFEAF8EF) : const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(6)),
+                      child: Text(isAvail ? AppStrings.t('inStock') : AppStrings.t('outStock'), style: TextStyle(color: isAvail ? Colors.green : Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
                     ),
                   ],
                 ),
                 const Divider(),
-                const Text('पैक साइज़ चुनें:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(AppStrings.t('packSelect'), style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
-                  children: List.generate(sizes.length, (i) {
-                    final s = sizes[i];
-                    return ChoiceChip(
-                      label: Text('${s['s']} - ₹${s['p']}'),
-                      selected: sIdx == i,
-                      onSelected: (_) => setState(() => sIdx = i),
-                    );
-                  }),
+                  children: List.generate(sizes.length, (i) => ChoiceChip(
+                    label: Text('${sizes[i]['s']} - ₹${sizes[i]['p']}'),
+                    selected: sIdx == i,
+                    onSelected: (_) => setState(() => sIdx = i),
+                  )),
                 ),
                 const SizedBox(height: 12),
                 Text(widget.item['desc'] ?? '', style: const TextStyle(color: Colors.black87)),
@@ -226,18 +248,18 @@ class _DetailScreenState extends State<DetailScreen> {
         padding: const EdgeInsets.all(12),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: isAvailable ? const Color(0xFF0B6B3A) : Colors.grey,
+            backgroundColor: isAvail ? const Color(0xFF0B6B3A) : Colors.grey,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: isAvailable
+          onPressed: isAvail
               ? () {
-                  cart.add({'name': widget.item['name'], 'pack': pack['s'], 'price': pack['p'], 'qty': 1});
+                  cart.add({'name': name, 'pack': pack['s'], 'price': pack['p'], 'qty': 1});
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कार्ट में जोड़ा गया ✓')));
                   Navigator.pop(context);
                 }
               : null,
-          child: Text(isAvailable ? 'कार्ट में जोड़ें - ₹${pack['p']}' : 'वर्तमान में अनुपलब्ध (Out of Stock)'),
+          child: Text(isAvail ? '${AppStrings.t('addToCart')} - ₹${pack['p']}' : AppStrings.t('outStock')),
         ),
       ),
     );
@@ -256,7 +278,7 @@ class _CartScreenState extends State<CartScreen> {
   final nameCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
   final addrCtrl = TextEditingController();
-  String payMode = 'UPI (ऑनलाइन / QR)';
+  String payMode = 'UPI (ऑनलाइन / PhonePe / GPay)';
 
   @override
   Widget build(BuildContext context) {
@@ -264,13 +286,13 @@ class _CartScreenState extends State<CartScreen> {
 
     if (cart.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('मेरा कार्ट')),
-        body: const Center(child: Text('कार्ट में कोई उत्पाद नहीं है')),
+        appBar: AppBar(title: Text(AppStrings.t('cart'))),
+        body: Center(child: Text(AppStrings.lang == 'hi' ? 'कार्ट खाली है!' : 'Cart is empty!')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('चेकआउट एवं बुकिंग')),
+      appBar: AppBar(title: Text(AppStrings.t('cart'))),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
@@ -282,18 +304,18 @@ class _CartScreenState extends State<CartScreen> {
             ),
           )),
           const SizedBox(height: 12),
-          const Text('किसान का डिलीवरी पता:', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(AppStrings.lang == 'hi' ? 'डिलीवरी विवरण भरें:' : 'Delivery Details:', style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'पूरा नाम', border: OutlineInputBorder())),
+          TextField(controller: nameCtrl, decoration: InputDecoration(labelText: AppStrings.lang == 'hi' ? 'किसान का नाम' : 'Farmer Name', border: const OutlineInputBorder())),
           const SizedBox(height: 6),
-          TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर', border: OutlineInputBorder())),
+          TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: AppStrings.lang == 'hi' ? 'मोबाइल नंबर' : 'Phone Number', border: const OutlineInputBorder())),
           const SizedBox(height: 6),
-          TextField(controller: addrCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'गाँव, पोस्ट, जिला, पिनकोड', border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          const Text('पेमेंट गेटवे विकल्प:', style: TextStyle(fontWeight: FontWeight.bold)),
+          TextField(controller: addrCtrl, maxLines: 2, decoration: InputDecoration(labelText: AppStrings.lang == 'hi' ? 'गाँव, पोस्ट, जिला, पिनकोड' : 'Full Address', border: const OutlineInputBorder())),
+          const SizedBox(height: 10),
+          Text(AppStrings.lang == 'hi' ? 'पेमेंट मोड चुनें:' : 'Payment Mode:', style: const TextStyle(fontWeight: FontWeight.bold)),
           RadioListTile<String>(
-            title: const Text('UPI (PhonePe, GPay, Paytm, QR)'),
-            value: 'UPI (ऑनलाइन / QR)',
+            title: const Text('UPI (PhonePe / GooglePay / QR)'),
+            value: 'UPI (ऑनलाइन / PhonePe / GPay)',
             groupValue: payMode,
             onChanged: (v) => setState(() => payMode = v!),
           ),
@@ -303,18 +325,18 @@ class _CartScreenState extends State<CartScreen> {
             groupValue: payMode,
             onChanged: (v) => setState(() => payMode = v!),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B6B3A), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
             onPressed: () {
               if (nameCtrl.text.isEmpty || phoneCtrl.text.isEmpty || addrCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कृपया नाम, मोबाइल व पूरा पता भरें')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कृपया पूरी जानकारी भरें')));
                 return;
               }
               final oid = 'AS-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
               orders.insert(0, {
                 'id': oid,
-                'name': nameCtrl.text.trim(),
+                'customer': nameCtrl.text.trim(),
                 'phone': phoneCtrl.text.trim(),
                 'addr': addrCtrl.text.trim(),
                 'items': cart.map((c) => '${c['name']} (${c['pack']})').join(', '),
@@ -327,10 +349,10 @@ class _CartScreenState extends State<CartScreen> {
                 'date': '02 Oct 2026',
               });
               cart.clear();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('बुकिंग सफलतापूर्वक कन्फर्म हुई ✓')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ऑर्डर सफलतापूर्वक बुक हुआ ✓')));
               widget.onOrder();
             },
-            child: Text('ऑर्डर बुक करें - ₹$sub'),
+            child: Text('${AppStrings.t('checkout')} - ₹$sub'),
           ),
         ],
       ),
@@ -341,7 +363,7 @@ class _CartScreenState extends State<CartScreen> {
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
-  int _getStep(String? status) {
+  int _step(String? status) {
     if (status == 'डिलीवर हो गया') return 3;
     if (status == 'डिस्पैच / रवाना') return 2;
     if (status == 'पैकिंग चालू') return 1;
@@ -351,7 +373,7 @@ class OrdersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('लाइव ट्रैकिंग व बुकिंग')),
+      appBar: AppBar(title: Text(AppStrings.t('orders'))),
       body: orders.isEmpty
           ? const Center(child: Text('कोई बुकिंग नहीं मिली'))
           : ListView.builder(
@@ -359,7 +381,7 @@ class OrdersScreen extends StatelessWidget {
               itemCount: orders.length,
               itemBuilder: (ctx, i) {
                 final o = orders[i];
-                final step = _getStep(o['status']);
+                final step = _step(o['status']);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
@@ -374,26 +396,26 @@ class OrdersScreen extends StatelessWidget {
                             Text('₹${o['total']}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0B6B3A))),
                           ],
                         ),
-                        Text('आइटम: ${o['items']}', style: const TextStyle(fontSize: 12)),
+                        Text('सामग्री: ${o['items']}', style: const TextStyle(fontSize: 12)),
                         Text('पेमेंट: ${o['payMode']} (${o['payStatus']})', style: const TextStyle(fontSize: 11, color: Colors.blueGrey)),
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('कूरियर: ${o['courier'] ?? 'प्रक्रिया में'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('ट्रैकिंग नं: ${o['trackingNo'] ?? '-'}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('कूरियर: ${o['courier'] ?? 'असाइन हो रहा'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('ट्रैकिंग: ${o['trackingNo'] ?? '-'}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                           ],
                         ),
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            _stepCircle('बुकिंग', step >= 0),
-                            _stepLine(step >= 1),
-                            _stepCircle('पैकिंग', step >= 1),
-                            _stepLine(step >= 2),
-                            _stepCircle('रवाना', step >= 2),
-                            _stepLine(step >= 3),
-                            _stepCircle('डिलीवर', step >= 3),
+                            _circle('बुकिंग', step >= 0),
+                            _line(step >= 1),
+                            _circle('पैकिंग', step >= 1),
+                            _line(step >= 2),
+                            _circle('रवाना', step >= 2),
+                            _line(step >= 3),
+                            _circle('डिलीवर', step >= 3),
                           ],
                         ),
                       ],
@@ -405,17 +427,135 @@ class OrdersScreen extends StatelessWidget {
     );
   }
 
-  Widget _stepCircle(String title, bool done) {
-    return Column(
-      children: [
-        CircleAvatar(radius: 10, backgroundColor: done ? const Color(0xFF0B6B3A) : Colors.grey[300], child: Icon(Icons.check, size: 12, color: done ? Colors.white : Colors.grey)),
-        const SizedBox(height: 2),
-        Text(title, style: TextStyle(fontSize: 10, fontWeight: done ? FontWeight.bold : FontWeight.normal, color: done ? const Color(0xFF0B6B3A) : Colors.grey)),
-      ],
+  Widget _circle(String t, bool done) => Column(children: [
+    CircleAvatar(radius: 10, backgroundColor: done ? const Color(0xFF0B6B3A) : Colors.grey[300], child: Icon(Icons.check, size: 12, color: done ? Colors.white : Colors.grey)),
+    const SizedBox(height: 2),
+    Text(t, style: TextStyle(fontSize: 10, fontWeight: done ? FontWeight.bold : FontWeight.normal, color: done ? const Color(0xFF0B6B3A) : Colors.grey)),
+  ]);
+
+  Widget _line(bool done) => Expanded(child: Container(height: 3, color: done ? const Color(0xFF0B6B3A) : Colors.grey[300]));
+}
+
+class HelpDeskScreen extends StatelessWidget {
+  const HelpDeskScreen({super.key});
+
+  void _openTicketDialog(BuildContext ctx) {
+    final subCtrl = TextEditingController();
+    final phCtrl = TextEditingController();
+    final msgCtrl = TextEditingController();
+
+    showDialog(
+      context: ctx,
+      builder: (dctx) => AlertDialog(
+        title: const Text('सहायता टिकट बनाएं'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: subCtrl, decoration: const InputDecoration(labelText: 'विषय (Order / Product)')),
+            TextField(controller: phCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर')),
+            TextField(controller: msgCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'अपनी समस्या लिखें')),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B6B3A), foregroundColor: Colors.white),
+            onPressed: () {
+              if (subCtrl.text.isNotEmpty && msgCtrl.text.isNotEmpty) {
+                helpTickets.insert(0, {
+                  'subject': subCtrl.text.trim(),
+                  'phone': phCtrl.text.trim(),
+                  'message': msgCtrl.text.trim(),
+                });
+                Navigator.pop(dctx);
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('सहायता टिकट दर्ज हुआ, हमारी टीम संपर्क करेगी ✓')));
+              }
+            },
+            child: const Text('भेजें'),
+          )
+        ],
+      ),
     );
   }
 
-  Widget _stepLine(bool done) {
-    return Expanded(child: Container(height: 3, color: done ? const Color(0xFF0B6B3A) : Colors.grey[300]));
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(AppStrings.t('helpDesk'))),
+      body: ListView(
+        padding: const EdgeInsets.all(14),
+        children: [
+          Card(
+            color: const Color(0xFF102A20),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('किसान सेवा केंद्र 24x7', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(
+                    AppStrings.lang == 'hi'
+                        ? 'फसल सलाह, दवा छिड़काव मात्रा एवं ऑर्डर सहायता के लिए तुरंत संपर्क करें।'
+                        : 'Connect with agriculture experts for crop advisory & order support.',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const CircleAvatar(backgroundColor: Color(0xFFEAF8EF), child: Icon(Icons.chat, color: Colors.green)),
+            title: Text(AppStrings.t('whatsapp')),
+            subtitle: const Text('+91 98765 43210 (WhatsApp चैट)'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WhatsApp चैट विंडो खुल रही है...')));
+            },
+          ),
+          const SizedBox(height: 10),
+          ListTile(
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const CircleAvatar(backgroundColor: Color(0xFFEAF8EF), child: Icon(Icons.call, color: Color(0xFF0B6B3A))),
+            title: Text(AppStrings.t('call')),
+            subtitle: const Text('1800-123-4567 (टोल फ्री कॉल)'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कॉल डायल हो रहा है...')));
+            },
+          ),
+          const SizedBox(height: 10),
+          ListTile(
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const CircleAvatar(backgroundColor: Color(0xFFEAF8EF), child: Icon(Icons.mail_outline, color: Color(0xFF0B6B3A))),
+            title: const Text('ऐप में टिकट बनाएं (Help Ticket)'),
+            subtitle: const Text('ऑर्डर या डिलीवरी समस्या दर्ज करें'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () => _openTicketDialog(context),
+          ),
+          const SizedBox(height: 20),
+          const Text('सोशल मीडिया कम्युनिटी:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _socialChip(Icons.video_library, 'YouTube', Colors.red),
+              _socialChip(Icons.facebook, 'Facebook', Colors.blue),
+              _socialChip(Icons.send, 'Telegram', Colors.lightBlue),
+            ],
+          ),
+        ],
+      ),
+    );
   }
+
+  Widget _socialChip(IconData ic, String name, Color clr) => Chip(
+    avatar: Icon(ic, color: clr, size: 18),
+    label: Text(name),
+    backgroundColor: Colors.white,
+  );
 }
