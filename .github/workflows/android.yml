@@ -21,12 +21,36 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.24.3'
           channel: 'stable'
 
       - name: Auto Generate Android Structure
         run: |
           flutter create . --platforms=android --project-name agri_sathi --org com.agrisathi
+
+      - name: Fix Android Gradle & SDK Configuration
+        run: |
+          # Android build.gradle में compileSdk 34 और ndk निश्चित करना
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle
+          
+          # सब-प्रोजेक्ट्स (app_links आदि) के लिए compileSdk 34 इंजेक्ट करना
+          cat << 'SUBEOF' >> android/build.gradle
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileSdkVersion 34
+                defaultConfig {
+                    targetSdkVersion 34
+                }
+            }
+        }
+    }
+}
+SUBEOF
 
       - name: Install dependencies
         run: flutter pub get
