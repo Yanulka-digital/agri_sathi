@@ -24,6 +24,10 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
+      - name: Auto Generate Android Structure
+        run: |
+          flutter create . --platforms=android --project-name agri_sathi --org com.agrisathi
+
       - name: Install dependencies
         run: flutter pub get
 
