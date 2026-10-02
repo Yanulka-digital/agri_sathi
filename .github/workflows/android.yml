@@ -24,33 +24,25 @@ jobs:
           flutter-version: '3.24.3'
           channel: 'stable'
 
-      - name: Auto Generate Android Structure
+      - name: Generate Android Structure
         run: |
           flutter create . --platforms=android --project-name agri_sathi --org com.agrisathi
 
-      - name: Fix Android Gradle & SDK Configuration
+      - name: Fix Gradle Plugin Configuration
         run: |
-          # Android build.gradle में compileSdk 34 और ndk निश्चित करना
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle
-          
-          # सब-प्रोजेक्ट्स (app_links आदि) के लिए compileSdk 34 इंजेक्ट करना
-          cat << 'SUBEOF' >> android/build.gradle
-
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                compileSdkVersion 34
-                defaultConfig {
-                    targetSdkVersion 34
-                }
-            }
-        }
-    }
-}
-SUBEOF
+          echo "" >> android/build.gradle
+          echo "subprojects { subproject ->" >> android/build.gradle
+          echo "    afterEvaluate {" >> android/build.gradle
+          echo "        if (subproject.hasProperty('android')) {" >> android/build.gradle
+          echo "            subproject.android {" >> android/build.gradle
+          echo "                compileSdkVersion 34" >> android/build.gradle
+          echo "            }" >> android/build.gradle
+          echo "        }" >> android/build.gradle
+          echo "    }" >> android/build.gradle
+          echo "}" >> android/build.gradle
 
       - name: Install dependencies
         run: flutter pub get
