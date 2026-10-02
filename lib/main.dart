@@ -1,46 +1,56 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/home_screen.dart';
-import 'screens/auth_screen.dart';
-import 'screens/admin_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  await Supabase.initialize(
-    url: 'https://lhmwvgylowennwenziml.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobXd2Z3lsb3dlbm53ZW56aW1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjUyMzAsImV4cCI6MjEwNjE0MTIzMH0.wR--JEou-E_8x5eGm6xbXRL-9H7fH8Bgecs17TJOY2g',
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Color(0xFF0B6B3A),
+      statusBarIconBrightness: Brightness.light,
+    ),
   );
-  
   runApp(const AgriSathiApp());
 }
-
-final supabase = Supabase.instance.client;
 
 class AgriSathiApp extends StatelessWidget {
   const AgriSathiApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Agri Sathi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          backgroundColor: Color(0xFF2E7D32),
-          foregroundColor: Colors.white,
-        ),
+      home: AppWebViewScreen(),
+    );
+  }
+}
+
+class AppWebViewScreen extends StatefulWidget {
+  const AppWebViewScreen({super.key});
+
+  @override
+  State<AppWebViewScreen> createState() => _AppWebViewScreenState();
+}
+
+class _AppWebViewScreenState extends State<AppWebViewScreen> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0B6B3A))
+      ..loadFlutterAsset('assets/index.html');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: WebViewWidget(controller: _controller),
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const HomeScreen(),
-        '/auth': (context) => const AuthScreen(),
-        '/admin': (context) => const AdminScreen(),
-      },
     );
   }
 }
