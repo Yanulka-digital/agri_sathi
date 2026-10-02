@@ -24,7 +24,7 @@ jobs:
           flutter-version: '3.22.2'
           channel: 'stable'
 
-      - name: Recreate clean android platform
+      - name: Setup Android Platform
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name agri_sathi --org com.agrisathi
